@@ -62,39 +62,52 @@ class DashboardScreen(MDScreen):
     def _add_greeting(self, box):
         from services.auth_service import get_active_user
         from utils.date_utils import now
+        from kivy.uix.image import Image
         user = get_active_user()
         h = now().hour
         greeting = "Good morning" if h < 12 else ("Good afternoon" if h < 17 else "Good evening")
         name = user.name if user else "Student"
+        
+        # Hero section card
+        hero = MDCard(orientation="vertical", padding=dp(20), spacing=dp(10),
+                      size_hint_y=None, height=dp(140), radius=[dp(16)],
+                      md_bg_color=[0.49, 0.30, 1, 0.15]) # subtle purple tint
+        
+        hero.add_widget(Image(source="tasklyn_logo_clear.png", size_hint=(None, None), size=(dp(60), dp(60)), 
+                              allow_stretch=True, keep_ratio=True, pos_hint={"center_x": .5}))
+                              
         lbl = MDLabel(
-            text=f"[b]{greeting}, {name}![/b]",
-            markup=True, font_style="H6",
-            size_hint_y=None, height=dp(40),
+            text=f"[b]{greeting}, {name}![/b]\n[size=14sp]Let's crush your goals today.[/size]",
+            markup=True, font_style="H5", theme_text_color="Primary",
+            halign="center", size_hint_y=None, height=dp(50)
         )
-        box.add_widget(lbl)
+        hero.add_widget(lbl)
+        box.add_widget(hero)
 
     def _add_stats_row(self, box):
         from services.gamification_service import get_today_accountability
         from services.streak_service import get_current_streak
         from services.pomodoro_service import get_today_summary
         from services.task_service import get_today_tasks
+        from kivymd.uix.gridlayout import MDGridLayout
 
         acc   = round(get_today_accountability(self.user_id))
         streak = get_current_streak(self.user_id)
         pomo  = get_today_summary(self.user_id)
         tasks = get_today_tasks(self.user_id)
 
-        row = MDBoxLayout(orientation="horizontal", spacing=dp(10),
-                          size_hint_y=None, height=dp(95))
-        row.add_widget(StatCard(icon="shield-star", title="Score",
+        grid = MDGridLayout(cols=2, spacing=dp(12), size_hint_y=None)
+        grid.bind(minimum_height=grid.setter('height'))
+        
+        grid.add_widget(StatCard(icon="shield-star", title="Score",
                                 value=f"{acc}%", accent_color=[0.49,0.30,1,1]))
-        row.add_widget(StatCard(icon="fire", title="Streak",
+        grid.add_widget(StatCard(icon="fire", title="Streak",
                                 value=f"{streak}d", accent_color=[1,0.7,0,1]))
-        row.add_widget(StatCard(icon="timer", title="Sessions",
+        grid.add_widget(StatCard(icon="timer", title="Sessions",
                                 value=str(pomo["sessions"]), accent_color=[0.26,0.78,0.85,1]))
-        row.add_widget(StatCard(icon="check-circle", title="Tasks",
+        grid.add_widget(StatCard(icon="check-circle", title="Tasks",
                                 value=str(len(tasks)), accent_color=[0.4,0.74,0.42,1]))
-        box.add_widget(row)
+        box.add_widget(grid)
 
     def _add_today_tasks(self, box):
         from services.task_service import get_today_tasks, get_overdue_tasks
@@ -189,23 +202,36 @@ class DashboardScreen(MDScreen):
             box.add_widget(row)
 
     def _add_quick_actions(self, box):
+        from kivymd.uix.gridlayout import MDGridLayout
         header = self._section_header("Quick Actions", "lightning-bolt", None)
         box.add_widget(header)
-        row = MDBoxLayout(orientation="horizontal", spacing=dp(10),
-                          size_hint_y=None, height=dp(50))
+        
+        grid = MDGridLayout(cols=4, spacing=dp(12), size_hint_y=None, height=dp(70))
+        
         btns = [
-            ("Add Task", "plus", "tasks"),
-            ("Pomodoro", "timer", "pomodoro"),
-            ("Flashcards", "cards", "flashcards"),
-            ("Stats", "chart-bar", "statistics"),
+            ("Add Task", "plus", "tasks", [0.49, 0.30, 1, 1]),
+            ("Pomodoro", "timer", "pomodoro", [1, 0.7, 0, 1]),
+            ("Flashcards", "cards", "flashcards", [0.93, 0.25, 0.48, 1]),
+            ("Stats", "chart-bar", "statistics", [0.26, 0.78, 0.85, 1]),
         ]
-        for label, icon, dest in btns:
-            btn = MDRaisedButton(
-                text=label, size_hint_x=1, height=dp(44),
-                on_release=lambda *_, d=dest: self._nav(d),
+        
+        for label, icon, dest, color in btns:
+            btn_card = MDCard(
+                orientation="vertical", padding=dp(8), spacing=dp(4),
+                radius=[dp(12)], elevation=1, ripple_behavior=True,
+                on_release=lambda *_, d=dest: self._nav(d)
             )
-            row.add_widget(btn)
-        box.add_widget(row)
+            btn_card.add_widget(MDIconButton(
+                icon=icon, icon_size="24sp", theme_icon_color="Custom", icon_color=color,
+                pos_hint={"center_x": .5}, size_hint=(None, None), size=(dp(36), dp(36))
+            ))
+            btn_card.add_widget(MDLabel(
+                text=label, font_style="Caption", halign="center", 
+                theme_text_color="Secondary", size_hint_y=None, height=dp(14)
+            ))
+            grid.add_widget(btn_card)
+            
+        box.add_widget(grid)
 
     # ── helpers ──────────────────────────────────────────────────────────────
 

@@ -9,7 +9,13 @@ _repo = StreakRepository()
 
 def record_activity(user_id: int) -> bool:
     """Record today's activity. Returns True if new streak day."""
-    return _repo.record_today(user_id, "daily")
+    is_new = _repo.record_today(user_id, "daily")
+    if is_new:
+        from services.notification_service import send_notification
+        streak = _repo.current_streak(user_id)
+        if streak > 0:
+            send_notification("🔥 Streak Extended!", f"You're on a {streak} day streak!")
+    return is_new
 
 
 def get_current_streak(user_id: int) -> int:

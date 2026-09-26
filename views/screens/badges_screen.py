@@ -85,7 +85,10 @@ class BadgesScreen(MDScreen):
                       radius=[dp(14)],
                       elevation=3 if not locked else 1)
         if locked:
-            card.md_bg_color = [0.15, 0.15, 0.22, 1]
+            from kivymd.app import MDApp
+            app = MDApp.get_running_app()
+            is_dark = app.theme_cls.theme_style == "Dark"
+            card.md_bg_color = [0.2, 0.2, 0.2, 1] if is_dark else [0.9, 0.9, 0.9, 1]
 
         icon_btn = MDIconButton(
             icon=badge.icon if not locked else "lock",

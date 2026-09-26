@@ -139,6 +139,7 @@ class TaskCard(MDCard):
     label_color = StringProperty("#7C4DFF")
     is_done = BooleanProperty(False)
     subject_name = StringProperty("")
+    completed_at = StringProperty("")
 
     on_complete_callback = None   # callable(task_id)
     on_tap_callback = None        # callable(task_id)
@@ -162,9 +163,10 @@ class TaskCard(MDCard):
         from kivy.uix.boxlayout import BoxLayout
 
         # Left colour strip
+        strip_color = "#4CAF50" if self.is_done else self.label_color
         with self.canvas.before:
             from utils.helpers import hex_to_kivy_colour
-            Color(*hex_to_kivy_colour(self.label_color))
+            Color(*hex_to_kivy_colour(strip_color))
             self._strip = RoundedRectangle(
                 pos=(self.x, self.y), size=(dp(4), self.height),
                 radius=[dp(4)],
@@ -189,8 +191,10 @@ class TaskCard(MDCard):
                          size_hint_y=None, height=dp(18))
         self._subj_lbl = MDLabel(text=self.subject_name, font_style="Caption",
                                   theme_text_color="Secondary")
-        self._dead_lbl = MDLabel(text=self.deadline, font_style="Caption",
-                                  theme_text_color="Hint")
+        
+        status_text = f"Completed at {self.completed_at}" if self.is_done and self.completed_at else self.deadline
+        self._dead_lbl = MDLabel(text=status_text, font_style="Caption",
+                                  theme_text_color="Hint" if not self.is_done else "Custom", text_color=[0.3, 0.7, 0.3, 1] if self.is_done else [0.5, 0.5, 0.5, 1])
         row2.add_widget(self._subj_lbl)
         row2.add_widget(self._dead_lbl)
         col.add_widget(row2)

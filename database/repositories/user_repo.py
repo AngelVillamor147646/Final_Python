@@ -15,12 +15,13 @@ class UserRepository(BaseRepository[User]):
             name=row["name"],
             avatar_id=row["avatar_id"],
             gender=row["gender"],
+            password=row["password"] if "password" in row.keys() else None,
             created_at=row["created_at"],
             updated_at=row["updated_at"],
         )
 
-    def create(self, name: str, avatar_id: str = "boy_neutral", gender: str = "boy") -> User:
-        row_id = self._insert({"name": name, "avatar_id": avatar_id, "gender": gender})
+    def create(self, name: str, avatar_id: str = "boy_neutral", gender: str = "boy", password: Optional[str] = None) -> User:
+        row_id = self._insert({"name": name, "avatar_id": avatar_id, "gender": gender, "password": password})
         return self.get_by_id(row_id)  # type: ignore[return-value]
 
     def update_profile(self, user_id: int, name: str, avatar_id: str, gender: str) -> bool:

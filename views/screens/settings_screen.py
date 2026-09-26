@@ -44,9 +44,12 @@ def _section(title: str) -> MDLabel:
 
 
 def _row(label: str, widget) -> MDBoxLayout:
+    from kivy.uix.anchorlayout import AnchorLayout
     row = MDBoxLayout(orientation="horizontal", size_hint_y=None, height=dp(48))
     row.add_widget(MDLabel(text=label, font_style="Body1"))
-    row.add_widget(widget)
+    anchor = AnchorLayout(anchor_x="right", anchor_y="center", size_hint_x=None, width=dp(70))
+    anchor.add_widget(widget)
+    row.add_widget(anchor)
     return row
 
 
@@ -56,6 +59,24 @@ class SettingsScreen(MDScreen):
         self.user_id = user_id
         Clock.schedule_once(self._build)
 
+    def _create_card(self, title: str, widgets: list) -> MDCard:
+        from kivymd.app import MDApp
+        card = MDCard(
+            orientation="vertical", padding=dp(16), spacing=dp(12),
+            size_hint_y=None, radius=[dp(16)], elevation=1
+        )
+        card.bind(minimum_height=card.setter('height'))
+        app = MDApp.get_running_app()
+        card.md_bg_color = [1, 1, 1, 0.05] if app.theme_cls.theme_style == 'Dark' else [0, 0, 0, 0.02]
+        
+        lbl = MDLabel(text=f"[b]{title}[/b]", markup=True, font_style="Subtitle2", size_hint_y=None, height=dp(24), theme_text_color="Primary")
+        card.add_widget(lbl)
+        
+        for w in widgets:
+            card.add_widget(w)
+            
+        return card
+
     def _build(self, *_):
         from database.repositories import SettingsRepository
         settings = SettingsRepository()
@@ -63,51 +84,48 @@ class SettingsScreen(MDScreen):
         box.clear_widgets()
 
         # ── Profile ──
-        box.add_widget(_section("Profile"))
-        btn = MDRaisedButton(text="Edit Profile", size_hint_x=None, width=dp(160),
-                              on_release=self._edit_profile)
-        box.add_widget(btn)
+        btn_prof = MDRaisedButton(text="Edit Profile", size_hint_x=1, height=dp(44),
+                               on_release=self._edit_profile)
+        box.add_widget(self._create_card("Account", [btn_prof]))
 
         # ── Appearance ──
-        box.add_widget(_section("Appearance"))
         self._theme_sw = MDSwitch(
             size_hint=(None, None), size=(dp(60), dp(32)),
         )
         self._theme_sw.active = (settings.get(self.user_id, "theme") == "Dark")
         self._theme_sw.bind(active=self._on_theme_toggle)
-        box.add_widget(_row("Dark Mode", self._theme_sw))
+        box.add_widget(self._create_card("Appearance", [_row("Dark Mode", self._theme_sw)]))
 
         # ── Notifications ──
-        box.add_widget(_section("Notifications"))
         self._notif_sw = MDSwitch(
             size_hint=(None, None), size=(dp(60), dp(32)),
         )
         self._notif_sw.active = settings.get_bool(self.user_id, "notifications_enabled")
         self._notif_sw.bind(active=lambda sw, v: settings.set(
             self.user_id, "notifications_enabled", "1" if v else "0"))
-        box.add_widget(_row("Enable Notifications", self._notif_sw))
+        box.add_widget(self._create_card("Notifications", [_row("Enable Reminders", self._notif_sw)]))
 
         # ── Backup & Data ──
-        box.add_widget(_section("Backup & Data"))
+        data_widgets = []
         for label, handler in [
             ("Create Backup",     self._do_backup),
             ("Restore Backup",    self._do_restore),
             ("Export Tasks CSV",  self._export_csv),
             ("Export PDF Report", self._export_pdf),
         ]:
-            btn = MDRaisedButton(text=label, size_hint_x=1, height=dp(44),
+            btn = MDFlatButton(text=label, size_hint_x=1, height=dp(44),
                                   on_release=handler)
-            box.add_widget(btn)
+            data_widgets.append(btn)
+        box.add_widget(self._create_card("Backup & Data", data_widgets))
 
         # ── Danger Zone ──
-        box.add_widget(_section("Danger Zone"))
-        rst_btn = MDRaisedButton(
+        rst_btn = MDFlatButton(
             text="Reset All Settings",
-            md_bg_color=[0.8, 0.2, 0.2, 1],
+            text_color=[0.8, 0.2, 0.2, 1],
             size_hint_x=1, height=dp(44),
             on_release=self._confirm_reset,
         )
-        box.add_widget(rst_btn)
+        box.add_widget(self._create_card("Danger Zone", [rst_btn]))
 
     # ── Handlers ──────────────────────────────────────────────────────────
 
@@ -128,7 +146,7 @@ class SettingsScreen(MDScreen):
         user = get_active_user()
         content = MDBoxLayout(orientation="vertical", spacing=dp(8),
                                size_hint_y=None, height=dp(120), padding=[dp(4)]*4)
-        self._pname = MDTextField(hint_text="Your name", text=user.name if user else "")
+        self._pname = MDTextField(hint_text="Your name", text=user.name if user else "", mode="fill", radius=[dp(10)])
         content.add_widget(self._pname)
         dlg = MDDialog(
             title="Edit Profile", type="custom", content_cls=content,

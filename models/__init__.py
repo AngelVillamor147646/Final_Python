@@ -11,6 +11,7 @@ class User:
     name: str
     avatar_id: str = "boy_neutral"
     gender: str = "boy"
+    password: Optional[str] = None
     created_at: str = ""
     updated_at: str = ""
 
@@ -52,13 +53,14 @@ class Schedule:
     id: int
     user_id: int
     title: str
-    day_of_week: int
+    days: str
     start_time: str
     end_time: str
     subject_id: Optional[int] = None
     room: str = ""
     instructor: str = ""
     color: str = "#7C4DFF"
+    notes: str = ""
     reminder_minutes: int = 15
     is_active: bool = True
     created_at: str = ""
@@ -152,10 +154,19 @@ class Skill:
     icon: str = "star"
     max_level: int = 10
     xp_per_level: int = 100
-    # Populated at query time when joined with user_skills
-    current_level: int = 0
-    current_xp: int = 0
-    total_xp: int = 0
+
+
+@dataclass
+class UserSkill:
+    id: int
+    user_id: int
+    skill_name: str
+    reminder_time: str = ""
+    streak: int = 0
+    longest_streak: int = 0
+    last_completed: Optional[str] = None
+    notification_enabled: bool = False
+    updated_at: str = ""
 
 
 @dataclass

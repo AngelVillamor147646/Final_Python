@@ -72,69 +72,50 @@ class StatisticsScreen(MDScreen):
         Clock.schedule_once(self._build_charts, 0.1)
 
     def _build_charts(self, *_):
-        from services.statistics_service import get_weekly_stats, get_monthly_stats, get_yearly_study_hours
-        from utils.date_utils import start_of_week, end_of_week, start_of_month, end_of_month, fmt_date, today
-        from statistics.chart_builder import bar_chart_png, line_chart_png, pie_chart_png
+        from services.statistics_service import get_analytics_dashboard_stats
+        from statistics.chart_builder import dual_bar_chart_png
 
-        if self._range == "week":
-            stats = get_weekly_stats(self.user_id)
-        elif self._range == "month":
-            stats = get_monthly_stats(self.user_id)
-        else:
-            stats = get_monthly_stats(self.user_id)  # fallback for year
+        stats = get_analytics_dashboard_stats(self.user_id)
 
         box = self.ids.content
         box.clear_widgets()
 
-        # ── KPI row ──
-        kpi_row = MDBoxLayout(orientation="horizontal", spacing=dp(8),
+        # ── KPI row 1 ──
+        kpi_row1 = MDBoxLayout(orientation="horizontal", spacing=dp(8),
                                size_hint_y=None, height=dp(95))
-        kpi_row.add_widget(StatCard(icon="check-circle", title="Tasks Done",
-                                     value=str(stats["tasks_completed"]),
-                                     accent_color=[0.4,0.74,0.42,1]))
-        kpi_row.add_widget(StatCard(icon="clock-alert", title="Late",
-                                     value=str(stats["tasks_late"]),
-                                     accent_color=[1,0.38,0.38,1]))
-        kpi_row.add_widget(StatCard(icon="timer", title="Sessions",
-                                     value=str(stats["pomodoro_sessions"]),
+        kpi_row1.add_widget(StatCard(icon="check-circle", title="Done Today",
+                                     value=str(stats["tasks_completed_today"]),
+                                     accent_color=[0.3,0.7,0.3,1]))
+        kpi_row1.add_widget(StatCard(icon="check-all", title="Done Week",
+                                     value=str(stats["tasks_completed_week"]),
                                      accent_color=[0.49,0.30,1,1]))
-        kpi_row.add_widget(StatCard(icon="head-lightbulb", title="FC Acc.",
-                                     value=f"{stats['flashcard_accuracy']}%",
-                                     accent_color=[1,0.7,0,1]))
-        box.add_widget(kpi_row)
+        kpi_row1.add_widget(StatCard(icon="timer", title="Pomo Hrs",
+                                     value=str(stats["pomodoro_hours_today"]),
+                                     accent_color=[1,0.6,0,1]))
+        box.add_widget(kpi_row1)
+        
+        # ── KPI row 2 ──
+        kpi_row2 = MDBoxLayout(orientation="horizontal", spacing=dp(8),
+                               size_hint_y=None, height=dp(95))
+        kpi_row2.add_widget(StatCard(icon="calendar-star", title="Best Day",
+                                     value=stats["most_productive_day"],
+                                     accent_color=[1,0.38,0.38,1]))
+        kpi_row2.add_widget(StatCard(icon="star", title="Habits",
+                                     value=str(stats["total_habits"]),
+                                     accent_color=[0.2,0.8,0.8,1]))
+        kpi_row2.add_widget(MDBoxLayout()) # spacer
+        box.add_widget(kpi_row2)
 
-        # ── Study hours bar chart ──
-        daily = stats.get("daily_study_minutes", [])
-        if daily:
-            labels = [d["date"][-5:] for d in daily]
-            values = [round(d["minutes"] / 60, 2) for d in daily]
-            png = bar_chart_png(labels, values, "Study Hours", "Date", "Hours")
-            box.add_widget(MDLabel(text="[b]Daily Study Hours[/b]", markup=True,
-                                   font_style="Subtitle2", size_hint_y=None, height=dp(28)))
-            ci = ChartImage(png_bytes=png, size_hint_y=None, height=dp(220))
-            box.add_widget(ci)
-
-        # ── Subject breakdown pie ──
-        subj = stats.get("subject_minutes", [])
-        if subj and len(subj) > 1:
-            labels = [s["subject"] for s in subj]
-            values = [s["minutes"] for s in subj]
-            png = pie_chart_png(labels, values, "Study by Subject")
-            box.add_widget(MDLabel(text="[b]Study by Subject[/b]", markup=True,
+        # ── Tasks Done vs Overdue bar chart ──
+        chart_data = stats.get("chart_data", [])
+        if chart_data:
+            labels = [d["day"] for d in chart_data]
+            done_vals = [d["done"] for d in chart_data]
+            overdue_vals = [d["overdue"] for d in chart_data]
+            png = dual_bar_chart_png(labels, done_vals, overdue_vals, title="Tasks: Done vs Overdue")
+            box.add_widget(MDLabel(text="[b]Weekly Performance[/b]", markup=True,
                                    font_style="Subtitle2", size_hint_y=None, height=dp(28)))
             ci = ChartImage(png_bytes=png, size_hint_y=None, height=dp(250))
-            box.add_widget(ci)
-
-        # ── Accountability trend ──
-        from services.gamification_service import get_accountability_history
-        hist = get_accountability_history(self.user_id, days=14)
-        if hist:
-            dates = [h["date"][-5:] for h in hist]
-            scores = [h["score"] for h in hist]
-            png = line_chart_png(dates, scores, "Accountability Score", "Score")
-            box.add_widget(MDLabel(text="[b]Accountability Trend[/b]", markup=True,
-                                   font_style="Subtitle2", size_hint_y=None, height=dp(28)))
-            ci = ChartImage(png_bytes=png, size_hint_y=None, height=dp(200))
             box.add_widget(ci)
 
     def export_pdf(self):

@@ -13,12 +13,19 @@ _subj_repo = SubjectRepository()
 DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 
+import json
+
 def get_weekly_schedule(user_id: int) -> dict[int, list[Schedule]]:
     """Return dict keyed by day_of_week (0=Mon) → list of schedules."""
     all_schedules = _repo.get_for_user(user_id)
     result: dict[int, list[Schedule]] = {i: [] for i in range(7)}
     for s in all_schedules:
-        result[s.day_of_week].append(s)
+        try:
+            days = json.loads(s.days)
+            for d in days:
+                result[int(d)].append(s)
+        except:
+            pass
     return result
 
 
@@ -26,9 +33,9 @@ def get_day_schedule(user_id: int, day_of_week: int) -> list[Schedule]:
     return _repo.get_for_day(user_id, day_of_week)
 
 
-def create_schedule(user_id: int, title: str, day_of_week: int,
+def create_schedule(user_id: int, title: str, days: list[int],
                     start_time: str, end_time: str, subject_id=None,
-                    room="", instructor="", color="#7C4DFF",
+                    room="", instructor="", color="#7C4DFF", notes="",
                     reminder_minutes=15) -> tuple[bool, str, Optional[Schedule]]:
     ok, err = validate_required(title, "Title")
     if not ok:
@@ -36,22 +43,30 @@ def create_schedule(user_id: int, title: str, day_of_week: int,
     ok, err = validate_time_order(start_time, end_time)
     if not ok:
         return False, err, None
-    conflicts = _repo.detect_conflicts(user_id, day_of_week, start_time, end_time)
-    if conflicts:
-        names = ", ".join(c.title for c in conflicts)
-        return False, f"Time conflicts with: {names}", None
+    if not days:
+        return False, "Please select at least one day.", None
+
+    # Check conflicts for all selected days
+    for d in days:
+        conflicts = _repo.detect_conflicts(user_id, d, start_time, end_time)
+        if conflicts:
+            names = ", ".join(c.title for c in conflicts)
+            return False, f"Time conflicts on {DAY_NAMES[d]} with: {names}", None
+    
     try:
-        s = _repo.create(user_id, title.strip(), day_of_week, start_time,
-                         end_time, subject_id, room, instructor, color, reminder_minutes)
+        s = _repo.create(user_id, title.strip(), json.dumps(days), start_time,
+                         end_time, subject_id, room, instructor, color, notes, reminder_minutes)
+        from services.notification_service import schedule_class_reminder
+        schedule_class_reminder(s)
         return True, "", s
     except Exception as exc:
         log.error("create_schedule: %s", exc)
         return False, "Failed to save schedule.", None
 
 
-def update_schedule(schedule_id: int, title: str, day_of_week: int,
+def update_schedule(schedule_id: int, user_id: int, title: str, days: list[int],
                     start_time: str, end_time: str, subject_id=None,
-                    room="", instructor="", color="#7C4DFF",
+                    room="", instructor="", color="#7C4DFF", notes="",
                     reminder_minutes=15) -> tuple[bool, str]:
     ok, err = validate_required(title, "Title")
     if not ok:
@@ -59,13 +74,24 @@ def update_schedule(schedule_id: int, title: str, day_of_week: int,
     ok, err = validate_time_order(start_time, end_time)
     if not ok:
         return False, err
-    conflicts = _repo.detect_conflicts(user_id=0, day_of_week=day_of_week,
-                                       start_time=start_time, end_time=end_time,
-                                       exclude_id=schedule_id)
-    # Note: user_id=0 is wrong here — caller must inject; fix for MVP:
+    if not days:
+        return False, "Please select at least one day."
+
+    for d in days:
+        conflicts = _repo.detect_conflicts(user_id=user_id, day_of_week=d,
+                                           start_time=start_time, end_time=end_time,
+                                           exclude_id=schedule_id)
+        if conflicts:
+            names = ", ".join(c.title for c in conflicts)
+            return False, f"Time conflicts on {DAY_NAMES[d]} with: {names}"
+
     try:
-        _repo.update(schedule_id, title.strip(), day_of_week, start_time,
-                     end_time, subject_id, room, instructor, color, reminder_minutes)
+        _repo.update(schedule_id, title.strip(), json.dumps(days), start_time,
+                     end_time, subject_id, room, instructor, color, notes, reminder_minutes)
+        s = _repo.get_by_id(schedule_id)
+        if s:
+            from services.notification_service import schedule_class_reminder
+            schedule_class_reminder(s)
         return True, ""
     except Exception as exc:
         log.error("update_schedule: %s", exc)

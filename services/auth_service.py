@@ -31,7 +31,7 @@ def get_active_user() -> Optional[User]:
     return _active_user
 
 
-def create_profile(name: str, avatar_id: str, gender: str) -> tuple[bool, str, Optional[User]]:
+def create_profile(name: str, avatar_id: str, gender: str, password: Optional[str] = None) -> tuple[bool, str, Optional[User]]:
     """
     Create the user profile.
 
@@ -44,7 +44,7 @@ def create_profile(name: str, avatar_id: str, gender: str) -> tuple[bool, str, O
     if not ok:
         return False, err, None
     try:
-        user = _user_repo.create(name=name.strip(), avatar_id=avatar_id, gender=gender)
+        user = _user_repo.create(name=name.strip(), avatar_id=avatar_id, gender=gender, password=password)
         _active_user = user
         log.info("Profile created: %s (id=%d)", user.name, user.id)
         return True, "", user
@@ -76,3 +76,20 @@ def refresh_active_user() -> Optional[User]:
     global _active_user
     _active_user = _user_repo.get_first()
     return _active_user
+
+
+def authenticate(name: str, password: str) -> tuple[bool, str, Optional[User]]:
+    """Authenticate a user by name and password."""
+    global _active_user
+    user = _user_repo.get_first()
+    if not user:
+        return False, "No profile exists yet.", None
+    
+    if user.name.lower() != name.lower().strip():
+        return False, "User not found.", None
+    
+    if user.password != password:
+        return False, "Incorrect password.", None
+    
+    _active_user = user
+    return True, "", user

@@ -61,3 +61,59 @@ def get_yearly_study_hours(user_id: int, year: int) -> list[dict]:
         minutes = _pomo_repo.total_work_minutes(user_id, start, end)
         result.append({"month": month, "hours": round(minutes / 60, 1)})
     return result
+
+def get_analytics_dashboard_stats(user_id: int) -> dict:
+    from datetime import date, timedelta
+    from database.connection import fetchall
+    today_dt = date.today()
+    start_week = today_dt - timedelta(days=today_dt.weekday())
+    end_week = start_week + timedelta(days=6)
+    
+    today_str = fmt_date(today_dt)
+    start_week_str = fmt_date(start_week)
+    end_week_str = fmt_date(end_week)
+    
+    tasks_today = _t_repo.count_completed_between(user_id, today_str, today_str)
+    tasks_week = _t_repo.count_completed_between(user_id, start_week_str, end_week_str)
+    
+    pomo_today_mins = _pomo_repo.total_work_minutes(user_id, today_str, today_str)
+    pomo_today_hours = round(pomo_today_mins / 60, 1)
+    
+    # Habits maintained
+    habits = fetchall("SELECT COUNT(*) as n FROM user_skills WHERE user_id=?", (user_id,))
+    total_habits = habits[0]["n"] if habits else 0
+    
+    # Chart data: tasks done vs overdue per day (for this week)
+    daily_stats = []
+    best_day = "-"
+    best_done = -1
+    
+    for i in range(7):
+        dt = start_week + timedelta(days=i)
+        dt_str = fmt_date(dt)
+        done = _t_repo.count_completed_between(user_id, dt_str, dt_str)
+        # For overdue, it's tasks whose deadline was this date, and they were either completed late or are still not done
+        late = _t_repo.count_late_between(user_id, dt_str, dt_str)
+        
+        day_name = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i]
+        daily_stats.append({
+            "day": day_name,
+            "done": done,
+            "overdue": late
+        })
+        
+        if done > best_done:
+            best_done = done
+            best_day = day_name
+            
+    if best_done == 0:
+        best_day = "None"
+            
+    return {
+        "tasks_completed_today": tasks_today,
+        "tasks_completed_week": tasks_week,
+        "pomodoro_hours_today": pomo_today_hours,
+        "most_productive_day": best_day,
+        "total_habits": total_habits,
+        "chart_data": daily_stats
+    }

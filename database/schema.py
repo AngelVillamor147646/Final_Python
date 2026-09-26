@@ -25,6 +25,7 @@ _TABLES: list[str] = [
         name        TEXT    NOT NULL,
         avatar_id   TEXT    NOT NULL DEFAULT 'boy_neutral',
         gender      TEXT    NOT NULL DEFAULT 'boy',
+        password    TEXT,
         created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
         updated_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
     )
@@ -54,7 +55,7 @@ _TABLES: list[str] = [
         priority        TEXT    NOT NULL DEFAULT 'medium'
                             CHECK(priority IN ('low','medium','high','critical')),
         status          TEXT    NOT NULL DEFAULT 'pending'
-                            CHECK(status IN ('pending','in_progress','done','cancelled')),
+                            CHECK(status IN ('pending','done')),
         label_color     TEXT    DEFAULT '#7C4DFF',
         deadline        TEXT,
         reminder_at     TEXT,
@@ -75,12 +76,13 @@ _TABLES: list[str] = [
         user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         subject_id      INTEGER REFERENCES subjects(id) ON DELETE SET NULL,
         title           TEXT    NOT NULL,
-        day_of_week     INTEGER NOT NULL CHECK(day_of_week BETWEEN 0 AND 6),
+        days            TEXT    NOT NULL DEFAULT '[]',
         start_time      TEXT    NOT NULL,
         end_time        TEXT    NOT NULL,
         room            TEXT    DEFAULT '',
         instructor      TEXT    DEFAULT '',
         color           TEXT    DEFAULT '#7C4DFF',
+        notes           TEXT    DEFAULT '',
         reminder_minutes INTEGER DEFAULT 15,
         is_active       INTEGER NOT NULL DEFAULT 1,
         created_at      TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
@@ -197,7 +199,12 @@ _TABLES: list[str] = [
         description TEXT    NOT NULL DEFAULT '',
         icon        TEXT    NOT NULL DEFAULT 'star',
         max_level   INTEGER NOT NULL DEFAULT 10,
-        xp_per_level INTEGER NOT NULL DEFAULT 100
+        xp_per_level INTEGER NOT NULL DEFAULT 100,
+        reminder_time TEXT DEFAULT '',
+        notification_enabled INTEGER NOT NULL DEFAULT 0,
+        streak INTEGER NOT NULL DEFAULT 0,
+        longest_streak INTEGER NOT NULL DEFAULT 0,
+        last_completed TEXT
     )
     """,
 
@@ -206,12 +213,14 @@ _TABLES: list[str] = [
     CREATE TABLE IF NOT EXISTS user_skills (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        skill_id        INTEGER NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
-        current_level   INTEGER NOT NULL DEFAULT 0,
-        current_xp      INTEGER NOT NULL DEFAULT 0,
-        total_xp        INTEGER NOT NULL DEFAULT 0,
+        skill_name      TEXT    NOT NULL,
+        reminder_time   TEXT    DEFAULT '',
+        streak          INTEGER NOT NULL DEFAULT 0,
+        longest_streak  INTEGER NOT NULL DEFAULT 0,
+        last_completed  TEXT,
+        notification_enabled INTEGER NOT NULL DEFAULT 0,
         updated_at      TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
-        UNIQUE(user_id, skill_id)
+        UNIQUE(user_id, skill_name)
     )
     """,
 

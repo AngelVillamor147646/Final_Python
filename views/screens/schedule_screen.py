@@ -29,32 +29,70 @@ Builder.load_string("""
         MDTopAppBar:
             title: 'Schedule'
             elevation: 0
-            right_action_items: [['plus-circle', lambda x: root.open_add_dialog()]]
-
         MDBoxLayout:
             id: day_tabs
             orientation: 'horizontal'
             size_hint_y: None
-            height: dp(44)
-            padding: dp(4), 0
-            spacing: dp(4)
+            height: dp(50)
+            padding: dp(8), dp(4)
+            spacing: dp(6)
 
-        MDScrollView:
-            MDBoxLayout:
-                id: schedule_list
-                orientation: 'vertical'
-                padding: dp(12)
-                spacing: dp(10)
-                size_hint_y: None
-                height: self.minimum_height
+        MDFloatLayout:
+            MDScrollView:
+                MDBoxLayout:
+                    id: schedule_list
+                    orientation: 'vertical'
+                    padding: dp(16)
+                    spacing: dp(12)
+                    size_hint_y: None
+                    height: self.minimum_height
+            
+            MDFloatingActionButton:
+                icon: "plus"
+                md_bg_color: app.theme_cls.primary_color
+                pos_hint: {"right": 0.95, "y": 0.05}
+                on_release: root.open_add_dialog()
 """)
 
+
+from datetime import datetime, date, timedelta
+
+class CountdownLabel(MDLabel):
+    def __init__(self, target_time_str: str, **kwargs):
+        super().__init__(**kwargs)
+        self.font_style = "Caption"
+        self.theme_text_color = "Primary"
+        self.bold = True
+        
+        # parse HH:MM
+        try:
+            h, m = map(int, target_time_str.split(':'))
+            now = datetime.now()
+            # We assume the schedule is for today, if the tab is today
+            self.target_dt = now.replace(hour=h, minute=m, second=0, microsecond=0)
+            self._update_event = Clock.schedule_interval(self.update_timer, 1)
+            self.update_timer()
+        except:
+            self.text = ""
+
+    def update_timer(self, *_):
+        now = datetime.now()
+        diff = self.target_dt - now
+        if diff.total_seconds() <= 0:
+            self.text = "In Progress / Passed"
+            if hasattr(self, '_update_event'):
+                self._update_event.cancel()
+        else:
+            s = int(diff.total_seconds())
+            h, r = divmod(s, 3600)
+            m, sec = divmod(r, 60)
+            self.text = f"Starts in: {h}h {m}m {sec}s"
 
 class ScheduleScreen(MDScreen):
     def __init__(self, user_id: int, **kwargs):
         super().__init__(**kwargs)
         self.user_id = user_id
-        self._selected_day = __import__("datetime").date.today().weekday()
+        self._selected_day = date.today().weekday()
         self._dialog = None
         Clock.schedule_once(self._build_day_tabs)
 
@@ -65,12 +103,14 @@ class ScheduleScreen(MDScreen):
         tabs = self.ids.day_tabs
         tabs.clear_widgets()
         for i, name in enumerate(DAY_NAMES):
+            is_sel = (i == self._selected_day)
             btn = MDRaisedButton(
-                text=name, size_hint_x=1, height=dp(36),
+                text=name, size_hint_x=1, size_hint_y=None, height=dp(40),
+                elevation=2 if is_sel else 0,
+                md_bg_color=[0.49, 0.30, 1, 1] if is_sel else [0.49, 0.30, 1, 0.1],
+                text_color=[1, 1, 1, 1] if is_sel else [0.7, 0.7, 0.8, 1],
                 on_release=lambda *_, d=i: self._select_day(d),
             )
-            if i == self._selected_day:
-                btn.md_bg_color = [0.49, 0.30, 1, 1]
             tabs.add_widget(btn)
 
     def _select_day(self, day: int):
@@ -94,21 +134,34 @@ class ScheduleScreen(MDScreen):
     def _make_card(self, sc) -> MDCard:
         from utils.helpers import hex_to_kivy_colour
         card = MDCard(orientation="horizontal", padding=[dp(12), dp(10)],
-                      spacing=dp(12), size_hint_y=None, height=dp(72),
+                      spacing=dp(12), size_hint_y=None, height=dp(110),
                       elevation=2, radius=[dp(12)])
         # Colour strip
         from kivy.graphics import Color, RoundedRectangle
         with card.canvas.before:
             Color(*hex_to_kivy_colour(sc.color))
-            RoundedRectangle(pos=(card.x, card.y), size=(dp(4), dp(72)),
+            RoundedRectangle(pos=(card.x, card.y), size=(dp(4), dp(110)),
                              radius=[dp(4)])
-        col = MDBoxLayout(orientation="vertical")
+        col = MDBoxLayout(orientation="vertical", spacing=dp(2))
         col.add_widget(MDLabel(text=f"[b]{sc.title}[/b]", markup=True,
-                               font_style="Body1"))
-        meta = f"{sc.start_time} – {sc.end_time}"
-        if sc.room: meta += f"  •  {sc.room}"
-        col.add_widget(MDLabel(text=meta, font_style="Caption",
+                               font_style="Subtitle1"))
+        
+        # Details row
+        details = f"{sc.start_time} – {sc.end_time}"
+        if sc.room: details += f"  •  Room: {sc.room}"
+        if sc.instructor: details += f"  •  By {sc.instructor}"
+        col.add_widget(MDLabel(text=details, font_style="Caption",
                                theme_text_color="Secondary"))
+                               
+        if sc.notes:
+            col.add_widget(MDLabel(text=f"Notes: {sc.notes}", font_style="Caption", theme_text_color="Hint"))
+
+        # Add countdown timer if it's today
+        import datetime
+        if self._selected_day == datetime.date.today().weekday():
+            timer = CountdownLabel(sc.start_time)
+            col.add_widget(timer)
+
         card.add_widget(col)
         # Delete button
         del_btn = MDIconButton(icon="delete-outline", icon_size="18sp",
@@ -119,23 +172,52 @@ class ScheduleScreen(MDScreen):
 
     def open_add_dialog(self):
         from services.schedule_service import get_subjects
-
         subjects = get_subjects(self.user_id)
-        content = MDBoxLayout(orientation="vertical", spacing=dp(8),
-                              size_hint_y=None, height=dp(380), padding=[dp(4)]*4)
-        self._s_title  = MDTextField(hint_text="Class title *", text="")
-        self._s_start  = MDTextField(hint_text="Start time (HH:MM)", text="")
-        self._s_end    = MDTextField(hint_text="End time (HH:MM)", text="")
-        self._s_room   = MDTextField(hint_text="Room / location", text="")
-        self._s_instr  = MDTextField(hint_text="Instructor", text="")
-        self._s_remind = MDTextField(hint_text="Reminder (minutes before)", text="15")
+        
+        content = MDBoxLayout(orientation="vertical", spacing=dp(16),
+                              size_hint_y=None, padding=dp(8))
+        content.bind(minimum_height=content.setter('height'))
+        
+        from kivymd.uix.selectioncontrol import MDCheckbox
+        from kivymd.uix.gridlayout import MDGridLayout
+        
+        self._s_title  = MDTextField(hint_text="Class title *", text="", mode="fill", radius=[dp(10)])
+        self._s_start  = MDTextField(hint_text="Start time (HH:MM)", text="", mode="fill", radius=[dp(10)])
+        self._s_end    = MDTextField(hint_text="End time (HH:MM)", text="", mode="fill", radius=[dp(10)])
+        self._s_room   = MDTextField(hint_text="Room / location", text="", mode="fill", radius=[dp(10)])
+        self._s_instr  = MDTextField(hint_text="Instructor", text="", mode="fill", radius=[dp(10)])
+        self._s_notes  = MDTextField(hint_text="Notes (optional)", text="", mode="fill", radius=[dp(10)])
+        self._s_remind = MDTextField(hint_text="Reminder (minutes before)", text="15", mode="fill", radius=[dp(10)])
+        
         for w in [self._s_title, self._s_start, self._s_end,
-                  self._s_room, self._s_instr, self._s_remind]:
+                  self._s_room, self._s_instr, self._s_notes, self._s_remind]:
             content.add_widget(w)
 
+        content.add_widget(MDLabel(text="Select Days:", font_style="Subtitle2", size_hint_y=None, height=dp(24)))
+        days_box = MDGridLayout(cols=3, size_hint_y=None, spacing=dp(4))
+        days_box.bind(minimum_height=days_box.setter('height'))
+        
+        self._day_checks = []
+        for i, name in enumerate(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]):
+            row = MDBoxLayout(orientation="horizontal", size_hint_y=None, height=dp(40))
+            cb = MDCheckbox(size_hint=(None, None), size=(dp(40), dp(40)))
+            if i == self._selected_day: cb.active = True
+            self._day_checks.append((i, cb))
+            row.add_widget(cb)
+            row.add_widget(MDLabel(text=name))
+            days_box.add_widget(row)
+            
+        content.add_widget(days_box)
+
+        from kivy.core.window import Window
+        from kivymd.uix.scrollview import MDScrollView
+        scroll = MDScrollView(size_hint_y=None)
+        scroll.height = min(dp(500), Window.height - dp(200))
+        scroll.add_widget(content)
+
         self._dialog = MDDialog(
-            title=f"Add Class — {DAY_NAMES[self._selected_day]}",
-            type="custom", content_cls=content,
+            title="Add Class",
+            type="custom", content_cls=scroll,
             buttons=[
                 MDFlatButton(text="CANCEL", on_release=lambda *_: self._dialog.dismiss()),
                 MDRaisedButton(text="SAVE",  on_release=self._save),
@@ -149,31 +231,39 @@ class ScheduleScreen(MDScreen):
             remind = int(self._s_remind.text or "15")
         except ValueError:
             remind = 15
+            
+        selected_days = [day for day, cb in self._day_checks if cb.active]
+        if not selected_days:
+            Snackbar(text="Select at least one day!", notif_type="warning").open()
+            return
+
         ok, err, sc = create_schedule(
             user_id=self.user_id,
             title=self._s_title.text,
-            day_of_week=self._selected_day,
+            days=selected_days,
             start_time=self._s_start.text,
             end_time=self._s_end.text,
             room=self._s_room.text,
             instructor=self._s_instr.text,
+            notes=self._s_notes.text,
             reminder_minutes=remind,
         )
+
         if ok:
             self._dialog.dismiss()
             self._refresh()
-            Snackbar(text="Class added!").open()
+            Snackbar(text="Class added!", notif_type="success").open()
             # Badge check
             from services.gamification_service import check_and_unlock_badges
             badges = check_and_unlock_badges(self.user_id, trigger="schedule_add")
             if badges:
                 Clock.schedule_once(
-                    lambda *_: Snackbar(text=f"🏅 {badges[0]}").open(), 1)
+                    lambda *_: Snackbar(text=f"🏅 {badges[0]}", notif_type="success").open(), 1)
         else:
-            Snackbar(text=err).open()
+            Snackbar(text=err, notif_type="error").open()
 
     def _delete(self, schedule_id: int):
         from services.schedule_service import delete_schedule
         delete_schedule(schedule_id)
         self._refresh()
-        Snackbar(text="Class removed.").open()
+        Snackbar(text="Class removed.", notif_type="info").open()

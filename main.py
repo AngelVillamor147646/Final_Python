@@ -34,6 +34,7 @@ class TasklynApp(MDApp):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.title = f"{APP_NAME} v{APP_VERSION}"
+        self.icon = "app-icon.png"
         self._user_id: int | None = None
 
     def build(self):
@@ -68,28 +69,15 @@ class TasklynApp(MDApp):
 
         from views.screens.splash_screen     import SplashScreen
         from views.screens.onboarding_screen import OnboardingScreen
+        from views.screens.login_screen      import LoginScreen
 
         sm.add_widget(SplashScreen())
         sm.add_widget(OnboardingScreen())
-
-        if user:
-            self._user_id = user.id
-            from views.screens.main_screen import MainScreen
-            main = MainScreen(user_id=user.id)
-            sm.add_widget(main)
+        sm.add_widget(LoginScreen())
 
         sm.current = "splash"
 
-        # ── Schedule notification dispatcher (every 60 s) ──
-        if user:
-            Clock.schedule_interval(
-                lambda _: self._dispatch_notifications(), 60
-            )
-
-        # ── Auto-backup (on startup) ──
-        if user:
-            Clock.schedule_once(lambda _: self._auto_backup(), 2)
-
+        # Note: Notification/backup tasks are scheduled after login now
         return sm
 
     def on_new_user(self, user_id: int):

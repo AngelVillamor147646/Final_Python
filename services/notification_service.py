@@ -48,27 +48,44 @@ def schedule_task_reminder(task: Task) -> None:
 
 
 def schedule_class_reminder(schedule: Schedule) -> None:
-    """Schedule a class start reminder (approximate, using next occurrence)."""
+    """Schedule class start reminders: 30 min, 15 min, and 0 min before."""
     from database.repositories import NotificationRepository
     from services.auth_service import get_active_user
     from utils.date_utils import today, week_dates
+    import json
+    
     user = get_active_user()
     if not user:
         return
+        
+    try:
+        days = json.loads(schedule.days)
+    except:
+        return
+        
     dates = week_dates()
-    target_date = dates[schedule.day_of_week]
-    sched_dt = datetime.combine(target_date, datetime.strptime(schedule.start_time, "%H:%M").time())
-    from datetime import timedelta
-    remind_dt = sched_dt - timedelta(minutes=schedule.reminder_minutes)
     repo = NotificationRepository()
     repo.delete_for_ref(schedule.id, "class_reminder")
-    repo.schedule(
-        user_id=user.id, notif_type="class_reminder",
-        title=f"🏫 {schedule.title}",
-        body=f"Class '{schedule.title}' starts in {schedule.reminder_minutes} min.",
-        scheduled_at=remind_dt.strftime("%Y-%m-%d %H:%M"),
-        ref_id=schedule.id,
-    )
+    
+    for d in days:
+        try:
+            target_date = dates[int(d)]
+            sched_dt = datetime.combine(target_date, datetime.strptime(schedule.start_time, "%H:%M").time())
+            from datetime import timedelta
+            
+            for offset_min in [30, 15, 0]:
+                remind_dt = sched_dt - timedelta(minutes=offset_min)
+                
+                msg_body = f"Class '{schedule.title}' starts now." if offset_min == 0 else f"Class '{schedule.title}' starts in {offset_min} min."
+                repo.schedule(
+                    user_id=user.id, notif_type="class_reminder",
+                    title=f"🏫 {schedule.title}",
+                    body=msg_body,
+                    scheduled_at=remind_dt.strftime("%Y-%m-%d %H:%M"),
+                    ref_id=schedule.id,
+                )
+        except:
+            pass
 
 
 def send_pomodoro_notification(kind: str = "work") -> None:

@@ -109,6 +109,38 @@ def _seed_default_data() -> None:
     log.info("Seed data inserted (migration 1).")
 
 
+@migration(2)
+def _add_password_to_users() -> None:
+    execute("ALTER TABLE users ADD COLUMN password TEXT;")
+    commit()
+    log.info("Added password column to users (migration 2).")
+
+
+@migration(3)
+def _update_schedules_and_skills() -> None:
+    execute("ALTER TABLE schedules ADD COLUMN days TEXT NOT NULL DEFAULT '[]';")
+    execute("ALTER TABLE schedules ADD COLUMN notes TEXT DEFAULT '';")
+    execute("UPDATE schedules SET days = '[' || day_of_week || ']';")
+    
+    execute("DROP TABLE IF EXISTS user_skills;")
+    execute("""
+    CREATE TABLE IF NOT EXISTS user_skills (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        skill_name      TEXT    NOT NULL,
+        reminder_time   TEXT    DEFAULT '',
+        streak          INTEGER NOT NULL DEFAULT 0,
+        longest_streak  INTEGER NOT NULL DEFAULT 0,
+        last_completed  TEXT,
+        notification_enabled INTEGER NOT NULL DEFAULT 0,
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+        UNIQUE(user_id, skill_name)
+    )
+    """)
+    commit()
+    log.info("Migration 3 applied (Schedules and User Skills updated).")
+
+
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------

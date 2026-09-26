@@ -25,6 +25,12 @@ Builder.load_string("""
         padding: dp(32)
         spacing: dp(20)
 
+        Image:
+            source: 'tasklyn_logo_clear.png'
+            size_hint: None, None
+            size: dp(120), dp(120)
+            pos_hint: {'center_x': .5}
+
         MDLabel:
             text: 'Welcome to Tasklyn'
             font_style: 'H4'
@@ -41,38 +47,69 @@ Builder.load_string("""
             size_hint_y: None
             height: dp(30)
 
-        MDTextField:
-            id: name_field
-            hint_text: 'Your name'
-            icon_left: 'account'
+        MDCard:
+            orientation: 'vertical'
+            padding: dp(20)
+            spacing: dp(16)
             size_hint_y: None
-            height: dp(56)
-            mode: 'rectangle'
+            height: self.minimum_height
+            radius: [dp(16)]
+            elevation: 2
+            md_bg_color: [1, 1, 1, 0.05] if app.theme_cls.theme_style == 'Dark' else [0, 0, 0, 0.02]
 
-        MDLabel:
-            text: 'Choose your avatar'
-            font_style: 'Subtitle2'
-            size_hint_y: None
-            height: dp(28)
-
-        ScrollView:
-            size_hint_y: None
-            height: dp(110)
-            MDGridLayout:
-                id: avatar_grid
-                cols: 4
-                spacing: dp(10)
-                padding: dp(4)
+            MDTextField:
+                id: name_field
+                hint_text: 'Your name'
+                icon_left: 'account'
                 size_hint_y: None
-                height: self.minimum_height
+                height: dp(56)
+                mode: 'fill'
+                radius: [dp(10)]
+                
+            MDTextField:
+                id: password_field
+                hint_text: 'Password (Optional)'
+                icon_left: 'lock'
+                password: True
+                size_hint_y: None
+                height: dp(56)
+                mode: 'fill'
+                radius: [dp(10)]
 
-        MDRaisedButton:
-            id: start_btn
-            text: 'GET STARTED'
-            size_hint_y: None
-            height: dp(50)
-            md_bg_color: app.theme_cls.primary_color
-            on_release: root.on_start()
+            MDLabel:
+                text: 'Choose your avatar'
+                font_style: 'Subtitle2'
+                size_hint_y: None
+                height: dp(28)
+
+            ScrollView:
+                size_hint_y: None
+                height: dp(110)
+                MDGridLayout:
+                    id: avatar_grid
+                    cols: 4
+                    spacing: dp(10)
+                    padding: dp(4)
+                    size_hint_y: None
+                    height: self.minimum_height
+
+            Widget:
+                size_hint_y: None
+                height: dp(10)
+
+            MDRaisedButton:
+                id: start_btn
+                text: 'GET STARTED'
+                font_style: 'Button'
+                bold: True
+                size_hint_x: 1
+                size_hint_y: None
+                height: dp(50)
+                md_bg_color: app.theme_cls.primary_color
+                on_release: root.on_start()
+                
+        Widget:
+            size_hint_y: 1
 """)
 
 
@@ -136,9 +173,10 @@ class OnboardingScreen(MDScreen):
         if not name:
             Snackbar(text="Please enter your name.").open()
             return
+        password = self.ids.password_field.text.strip() or None
         gender = "girl" if "girl" in self._selected_avatar else "boy"
         from services.auth_service import create_profile
-        ok, err, user = create_profile(name, self._selected_avatar, gender)
+        ok, err, user = create_profile(name, self._selected_avatar, gender, password)
         if ok:
             # Run first-time gamification seed
             from database.repositories import StreakRepository

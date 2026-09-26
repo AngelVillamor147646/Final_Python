@@ -25,16 +25,12 @@ Builder.load_string("""
         spacing: dp(20)
         pos_hint: {'center_x': .5, 'center_y': .5}
 
-        MDLabel:
-            id: logo_lbl
-            text: 'T'
-            font_style: 'H1'
-            bold: True
-            halign: 'center'
-            theme_text_color: 'Custom'
-            text_color: 1, 1, 1, 1
-            size_hint_y: None
-            height: dp(80)
+        Image:
+            id: logo_img
+            source: 'tasklyn_logo_clear.png'
+            size_hint: None, None
+            size: dp(150), dp(150)
+            pos_hint: {'center_x': .5}
             opacity: 0
 
         MDLabel:
@@ -72,7 +68,7 @@ class SplashScreen(MDScreen):
                   size=lambda *_: setattr(self._bg, "size", self.size))
 
     def _animate_in(self, *_):
-        logo = self.ids.logo_lbl
+        logo = self.ids.logo_img
         name = self.ids.name_lbl
         tag  = self.ids.tag_lbl
         (Animation(opacity=1, duration=0.5, t="out_cubic") +
@@ -82,5 +78,5 @@ class SplashScreen(MDScreen):
 
     def _navigate(self, *_):
         from services.auth_service import is_first_launch
-        target = "onboarding" if is_first_launch() else "main"
+        target = "onboarding" if is_first_launch() else "login"
         self.manager.current = target

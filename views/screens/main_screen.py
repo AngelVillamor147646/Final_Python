@@ -49,17 +49,18 @@ Builder.load_string("""
             on_tab_press: root.on_tab_press('pomodoro')
 
         MDBottomNavigationItem:
-            id: flashcards
-            name: 'flashcards'
-            text: 'Cards'
-            icon: 'cards-outline'
-            on_tab_press: root.on_tab_press('flashcards')
+            id: habits
+            name: 'habits'
+            text: 'Habits'
+            icon: 'star-outline'
+            on_tab_press: root.on_tab_press('habits')
 
         MDBottomNavigationItem:
-            name: 'more'
-            text: 'More'
-            icon: 'dots-horizontal-circle-outline'
-            on_tab_press: root.on_tab_press('more')
+            id: analytics
+            name: 'analytics'
+            text: 'Analytics'
+            icon: 'chart-bar'
+            on_tab_press: root.on_tab_press('analytics')
 """)
 
 
@@ -89,35 +90,29 @@ class MainScreen(MDScreen):
             "tasks":      TaskScreen(user_id=uid),
             "schedule":   ScheduleScreen(user_id=uid),
             "pomodoro":   PomodoroScreen(user_id=uid),
-            "flashcards": FlashcardScreen(user_id=uid),
-            "statistics": StatisticsScreen(user_id=uid),
+            "habits":     SkillsScreen(user_id=uid),  # Using SkillsScreen for habits
+            "analytics":  StatisticsScreen(user_id=uid),
             "badges":     BadgesScreen(user_id=uid),
-            "skills":     SkillsScreen(user_id=uid),
             "reflection": ReflectionScreen(user_id=uid),
             "settings":   SettingsScreen(user_id=uid),
         }
-        # The bottom nav items contain their own content area — we embed a
-        # ScreenManager per tab item, or just swap content. For simplicity,
-        # each tab item hosts the corresponding screen directly.
         nav = self.ids.nav
         tab_map = {
             "dashboard":  self.ids.dashboard,
             "tasks":      self.ids.tasks,
             "schedule":   self.ids.schedule,
             "pomodoro":   self.ids.pomodoro,
-            "flashcards": self.ids.flashcards,
+            "habits":     self.ids.habits,
+            "analytics":  self.ids.analytics,
         }
         for tab_name, tab_widget in tab_map.items():
             tab_widget.add_widget(self._screens[tab_name])
 
     def on_tab_press(self, tab_name: str):
         self._current_tab = tab_name
-        if tab_name == "more":
-            self._show_more_menu()
-        else:
-            screen = self._screens.get(tab_name)
-            if screen and hasattr(screen, "on_enter"):
-                screen.on_enter()
+        screen = self._screens.get(tab_name)
+        if screen and hasattr(screen, "on_enter"):
+            screen.on_enter()
 
     def switch_tab(self, tab_name: str):
         """Programmatically switch the active bottom nav tab."""
@@ -125,33 +120,6 @@ class MainScreen(MDScreen):
             self.ids.nav.switch_tab(tab_name)
         except Exception:
             pass
-
-    def _show_more_menu(self):
-        from kivymd.uix.dialog import MDDialog
-        from kivymd.uix.button import MDFlatButton, MDRaisedButton
-        from kivy.uix.boxlayout import BoxLayout
-        from kivy.metrics import dp
-
-        content = BoxLayout(orientation="vertical", spacing=dp(8),
-                             size_hint_y=None, height=dp(240))
-        items = [
-            ("Statistics",   "statistics"),
-            ("Badges",       "badges"),
-            ("Skills",       "skills"),
-            ("Reflection",   "reflection"),
-            ("Settings",     "settings"),
-        ]
-        dlg = MDDialog(title="More", type="custom", content_cls=content, buttons=[
-            MDFlatButton(text="CLOSE", on_release=lambda *_: dlg.dismiss()),
-        ])
-        for label, dest in items:
-            btn = MDRaisedButton(
-                text=label, size_hint_x=1, height=dp(40),
-                on_release=lambda *_, d=dest, dl=dlg: (dl.dismiss(),
-                                                        self._navigate_to(d)),
-            )
-            content.add_widget(btn)
-        dlg.open()
 
     def _navigate_to(self, dest: str):
         """Push a feature screen that isn't in the bottom nav."""

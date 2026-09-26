@@ -45,6 +45,37 @@ def bar_chart_png(
     return data
 
 
+def dual_bar_chart_png(
+    labels: list[str], values1: list[float], values2: list[float],
+    label1: str = "Done", label2: str = "Overdue",
+    title: str = "", xlabel: str = "", ylabel: str = "",
+    color1: str = "#4CAF50", color2: str = "#F44336",
+    width: float = 6, height: float = 3.5,
+) -> bytes:
+    import numpy as np
+    fig, ax = _get_fig(width, height)
+    
+    x = np.arange(len(labels))
+    bar_width = 0.35
+    
+    bars1 = ax.bar(x - bar_width/2, values1, bar_width, label=label1, color=color1, zorder=2)
+    bars2 = ax.bar(x + bar_width/2, values2, bar_width, label=label2, color=color2, zorder=2)
+    
+    ax.set_title(title, fontsize=11, pad=8)
+    ax.set_xlabel(xlabel); ax.set_ylabel(ylabel)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.legend(facecolor="#252536", edgecolor="#3E3E5A", labelcolor="#E8E8FF", fontsize=8)
+    ax.yaxis.grid(True, color="#3E3E5A", linewidth=0.5, zorder=0)
+    ax.set_axisbelow(True)
+    
+    fig.tight_layout()
+    buf = io.BytesIO(); fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
+    buf.seek(0); data = buf.read()
+    import matplotlib.pyplot as plt; plt.close(fig)
+    return data
+
+
 def line_chart_png(
     dates: list[str], values: list[float],
     title: str = "", ylabel: str = "",

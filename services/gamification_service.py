@@ -21,7 +21,13 @@ _acc_repo = AccountabilityRepository()
 
 def award_xp(user_id: int, skill_slug: str, xp: int) -> dict:
     """Award XP to a skill; return level-up info dict."""
-    return _skill_repo.add_xp(user_id, skill_slug, xp)
+    res = _skill_repo.add_xp(user_id, skill_slug, xp)
+    if res.get("leveled_up"):
+        from services.notification_service import send_notification
+        skill = _skill_repo.get_skill(user_id, skill_slug)
+        if skill:
+            send_notification("⭐ Skill Level Up!", f"{skill.name} reached level {res['new_level']}!")
+    return res
 
 
 def get_skills(user_id: int) -> list[Skill]:
@@ -57,6 +63,8 @@ def check_and_unlock_badges(user_id: int, trigger: str = "daily") -> list[str]:
                 if badge:
                     unlocked.append(slug)
                     log.info("Badge unlocked: %s for user %d", slug, user_id)
+                    from services.notification_service import send_notification
+                    send_notification("🏅 Badge Unlocked!", f"You earned: {badge.name}")
                     # Award XP for the badge itself
                     award_xp(user_id, "discipline", badge.xp_reward // 2)
     return unlocked

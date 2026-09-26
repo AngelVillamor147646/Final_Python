@@ -74,12 +74,22 @@ class PomodoroScreen(MDScreen):
     def _build_ui(self, *_):
         box = self.ids.content
         box.clear_widgets()
+        
+        # Timer Card
+        timer_card = MDCard(
+            orientation="vertical", padding=dp(24), spacing=dp(20),
+            size_hint=(0.95, None), height=dp(480), pos_hint={"center_x": .5},
+            radius=[dp(24)], elevation=2,
+        )
+        from kivymd.app import MDApp
+        app = MDApp.get_running_app()
+        timer_card.md_bg_color = [1, 1, 1, 0.05] if app.theme_cls.theme_style == 'Dark' else [0, 0, 0, 0.02]
 
         # Mode label
         self._mode_lbl = MDLabel(text="FOCUS TIME", font_style="Overline",
                                   halign="center", theme_text_color="Secondary",
                                   size_hint_y=None, height=dp(24))
-        box.add_widget(self._mode_lbl)
+        timer_card.add_widget(self._mode_lbl)
 
         # Ring + time label
         ring_wrapper = MDBoxLayout(orientation="vertical",
@@ -97,8 +107,8 @@ class PomodoroScreen(MDScreen):
             theme_text_color="Primary",
             size_hint_y=None, height=dp(50),
         )
-        box.add_widget(self._time_lbl)
-        box.add_widget(ring_wrapper)
+        timer_card.add_widget(self._time_lbl)
+        timer_card.add_widget(ring_wrapper)
 
         # Session counter
         self._session_lbl = MDLabel(
@@ -106,30 +116,54 @@ class PomodoroScreen(MDScreen):
             theme_text_color="Secondary", font_style="Body2",
             size_hint_y=None, height=dp(24),
         )
-        box.add_widget(self._session_lbl)
+        timer_card.add_widget(self._session_lbl)
+        
+        # Adjust Time row
+        adj_row = MDBoxLayout(orientation="horizontal", spacing=dp(30),
+                              size_hint_y=None, height=dp(40),
+                              adaptive_width=True, pos_hint={"center_x": .5})
+        adj_row.add_widget(MDIconButton(icon="minus", icon_size="24sp", theme_icon_color="Custom", icon_color=[0.7,0.7,0.7,1], on_release=lambda x: self._adjust_time(-60)))
+        adj_row.add_widget(MDIconButton(icon="plus", icon_size="24sp", theme_icon_color="Custom", icon_color=[0.7,0.7,0.7,1], on_release=lambda x: self._adjust_time(60)))
+        timer_card.add_widget(adj_row)
 
         # Buttons
-        btn_row = MDBoxLayout(orientation="horizontal", spacing=dp(12),
+        btn_row = MDBoxLayout(orientation="horizontal", spacing=dp(16),
                                size_hint_y=None, height=dp(50),
                                adaptive_width=True, pos_hint={"center_x": .5})
-        self._start_btn = MDRaisedButton(text="START", height=dp(48), on_release=self._start)
-        self._pause_btn = MDFlatButton(text="PAUSE", height=dp(48),
+        self._start_btn = MDRaisedButton(text="START", height=dp(44), on_release=self._start)
+        self._pause_btn = MDFlatButton(text="PAUSE", height=dp(44),
                                        on_release=self._pause, disabled=True)
-        self._stop_btn  = MDFlatButton(text="STOP", height=dp(48),
+        self._stop_btn  = MDFlatButton(text="STOP", height=dp(44), text_color=[1,0.3,0.3,1],
                                         on_release=self._stop,  disabled=True)
         for b in [self._start_btn, self._pause_btn, self._stop_btn]:
             btn_row.add_widget(b)
-        box.add_widget(btn_row)
+        timer_card.add_widget(btn_row)
+        
+        box.add_widget(timer_card)
 
         # Today's summary
         self._summary_lbl = MDLabel(
             text=self._get_summary_text(), halign="center",
             theme_text_color="Secondary", font_style="Caption",
-            size_hint_y=None, height=dp(30),
+            size_hint_y=None, height=dp(40),
         )
         box.add_widget(self._summary_lbl)
 
     # ── Timer control ──────────────────────────────────────────────────────
+
+    def _adjust_time(self, seconds: int):
+        self._seconds_left += seconds
+        if self._seconds_left < 60:
+            self._seconds_left = 60
+            
+        if self._state == self.IDLE:
+            self._total_seconds = self._seconds_left
+        
+        if self._total_seconds < self._seconds_left:
+             self._total_seconds = self._seconds_left
+
+        self._ring.progress = self._seconds_left / max(self._total_seconds, 1)
+        self._time_lbl.text = self._fmt_time(self._seconds_left)
 
     def _start(self, *_):
         if self._state == self.IDLE:
@@ -276,16 +310,17 @@ class PomodoroScreen(MDScreen):
         self._pl = MDTextField(hint_text="Long break minutes", text=str(self._long_break_min))
         for w in [self._pw, self._pb, self._pl]:
             content.add_widget(w)
-        dlg = MDDialog(
+            
+        self._settings_dlg = MDDialog(
             title="Timer Settings", type="custom", content_cls=content,
-            buttons=[
-                MDFlatButton(text="CANCEL", on_release=lambda *_: dlg.dismiss()),
-                MDRaisedButton(text="SAVE",  on_release=lambda *_, d=dlg: self._save_settings(d)),
-            ],
         )
-        dlg.open()
+        self._settings_dlg.buttons = [
+            MDFlatButton(text="CANCEL", on_release=lambda *_: self._settings_dlg.dismiss()),
+            MDRaisedButton(text="SAVE",  on_release=self._save_settings),
+        ]
+        self._settings_dlg.open()
 
-    def _save_settings(self, dlg):
+    def _save_settings(self, *_):
         from database.repositories import SettingsRepository
         s = SettingsRepository()
         try:
@@ -297,5 +332,8 @@ class PomodoroScreen(MDScreen):
         s.set(self.user_id, "pomodoro_work",       str(self._work_min))
         s.set(self.user_id, "pomodoro_break",      str(self._break_min))
         s.set(self.user_id, "pomodoro_long_break", str(self._long_break_min))
-        dlg.dismiss()
+        
+        if hasattr(self, '_settings_dlg'):
+            self._settings_dlg.dismiss()
+            
         Snackbar(text="Timer settings saved.").open()

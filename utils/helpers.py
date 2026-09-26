@@ -173,7 +173,36 @@ from kivymd.uix.snackbar import Snackbar as KivyMDSnackbar
 from kivymd.uix.label import MDLabel
 
 class TasklynSnackbar:
-    def __init__(self, text=""):
-        self.snackbar = KivyMDSnackbar(MDLabel(text=str(text), theme_text_color="Custom", text_color=(1,1,1,1)))
+    COLORS = {
+        "success": [0.298, 0.686, 0.313, 1], # #4CAF50
+        "error": [0.956, 0.262, 0.211, 1],   # #F44336
+        "warning": [1.0, 0.596, 0.0, 1],     # #FF9800
+        "info": [0.129, 0.588, 0.952, 1],    # #2196F3
+    }
+    
+    ICONS = {
+        "success": "check-circle",
+        "error": "alert-circle",
+        "warning": "alert",
+        "info": "information",
+    }
+
+    def __init__(self, text="", notif_type="info"):
+        from kivymd.uix.boxlayout import MDBoxLayout
+        from kivymd.uix.label import MDIcon
+        
+        bg_color = self.COLORS.get(notif_type, self.COLORS["info"])
+        icon_name = self.ICONS.get(notif_type, self.ICONS["info"])
+        
+        content = MDBoxLayout(orientation="horizontal", spacing="12dp", padding="8dp")
+        content.add_widget(MDIcon(icon=icon_name, theme_text_color="Custom", text_color=(1,1,1,1)))
+        content.add_widget(MDLabel(text=str(text), theme_text_color="Custom", text_color=(1,1,1,1)))
+        
+        self.snackbar = KivyMDSnackbar(
+            content,
+            md_bg_color=bg_color,
+            radius=[8, 8, 8, 8]
+        )
+        
     def open(self):
         self.snackbar.open()
