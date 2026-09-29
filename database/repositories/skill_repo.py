@@ -20,7 +20,7 @@ class SkillRepository(BaseRepository[Skill]):
         rows = self._fetchall(
             """SELECT s.*, us.current_level, us.current_xp, us.total_xp
                FROM skills s
-               LEFT JOIN user_skills us ON us.skill_id=s.id AND us.user_id=?
+               LEFT JOIN user_skill_levels us ON us.skill_id=s.id AND us.user_id=?
                ORDER BY s.name""",
             (user_id,),
         )
@@ -40,7 +40,7 @@ class SkillRepository(BaseRepository[Skill]):
 
     def _ensure_user_skill(self, user_id: int, skill_id: int) -> None:
         self._execute(
-            "INSERT OR IGNORE INTO user_skills (user_id, skill_id) VALUES (?, ?)",
+            "INSERT OR IGNORE INTO user_skill_levels (user_id, skill_id) VALUES (?, ?)",
             (user_id, skill_id),
         )
         self._commit()
@@ -61,7 +61,7 @@ class SkillRepository(BaseRepository[Skill]):
         self._ensure_user_skill(user_id, skill_id)
 
         user_skill = self._fetchone(
-            "SELECT * FROM user_skills WHERE user_id=? AND skill_id=?",
+            "SELECT * FROM user_skill_levels WHERE user_id=? AND skill_id=?",
             (user_id, skill_id),
         )
         curr_xp = (user_skill["current_xp"] or 0) + xp
@@ -78,7 +78,7 @@ class SkillRepository(BaseRepository[Skill]):
             curr_xp = min(curr_xp, xp_per_level)   # cap at max
 
         self._execute(
-            """UPDATE user_skills SET current_level=?, current_xp=?, total_xp=?,
+            """UPDATE user_skill_levels SET current_level=?, current_xp=?, total_xp=?,
                updated_at=datetime('now','localtime')
                WHERE user_id=? AND skill_id=?""",
             (curr_level, curr_xp, total_xp, user_id, skill_id),
@@ -90,7 +90,7 @@ class SkillRepository(BaseRepository[Skill]):
         row = self._fetchone(
             """SELECT s.*, us.current_level, us.current_xp, us.total_xp
                FROM skills s
-               LEFT JOIN user_skills us ON us.skill_id=s.id AND us.user_id=?
+               LEFT JOIN user_skill_levels us ON us.skill_id=s.id AND us.user_id=?
                WHERE s.slug=?""",
             (user_id, skill_slug),
         )

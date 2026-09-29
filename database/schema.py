@@ -223,6 +223,20 @@ _TABLES: list[str] = [
         UNIQUE(user_id, skill_name)
     )
     """,
+    
+     """
+    CREATE TABLE IF NOT EXISTS user_skill_levels (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        skill_id        INTEGER NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+        current_level   INTEGER NOT NULL DEFAULT 0,
+        current_xp      INTEGER NOT NULL DEFAULT 0,
+        total_xp        INTEGER NOT NULL DEFAULT 0,
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+        UNIQUE(user_id, skill_id)
+    )
+    """,
+
 
     # ---------------------------------------------------------------- streaks
     """
@@ -297,7 +311,6 @@ _INDEXES: list[str] = [
     "CREATE INDEX IF NOT EXISTS idx_tasks_status        ON tasks(status)",
     "CREATE INDEX IF NOT EXISTS idx_tasks_subject_id    ON tasks(subject_id)",
     "CREATE INDEX IF NOT EXISTS idx_schedules_user_id   ON schedules(user_id)",
-    "CREATE INDEX IF NOT EXISTS idx_schedules_day       ON schedules(day_of_week)",
     "CREATE INDEX IF NOT EXISTS idx_pomodoro_user_id    ON pomodoro_sessions(user_id)",
     "CREATE INDEX IF NOT EXISTS idx_pomodoro_started_at ON pomodoro_sessions(started_at)",
     "CREATE INDEX IF NOT EXISTS idx_flashcards_deck_id  ON flashcards(deck_id)",
