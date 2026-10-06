@@ -37,6 +37,29 @@ class TasklynApp(MDApp):
         self.icon = "app-icon.png"
         self._user_id: int | None = None
 
+    def show_in_app_alert(self, title: str, message: str):
+        from kivy.clock import Clock
+        from kivymd.uix.dialog import MDDialog
+        from kivymd.uix.button import MDFlatButton
+
+        def _open(*_):
+            old = getattr(self, "_alert_dialog", None)
+            if old:
+                old.dismiss()
+            self._alert_dialog = MDDialog(
+                title=title,
+                text=message,
+                buttons=[
+                    MDFlatButton(
+                        text="OK",
+                        on_release=lambda *a: self._alert_dialog.dismiss(),
+                    )
+                ],
+            )
+            self._alert_dialog.open()
+
+        Clock.schedule_once(_open)
+
     def build(self):
         # ── Database bootstrap ──
         try:

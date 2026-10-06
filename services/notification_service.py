@@ -23,6 +23,14 @@ def _send_now(title: str, message: str, ticker: str = "") -> None:
     except Exception as exc:
         log.warning("Plyer notification failed: %s", exc)
 
+    try:
+        from kivymd.app import MDApp
+        app = MDApp.get_running_app()
+        if app:
+            app.show_in_app_alert(title, message)
+    except Exception as exc:
+        log.warning("In-app alert failed: %s", exc)
+
 
 def send_notification(title: str, body: str) -> None:
     _send_now(title, body)

@@ -88,13 +88,16 @@ class _TaskFormContent(MDBoxLayout):
         self.dead_f = MDTextField(
             hint_text="Deadline (YYYY-MM-DD)",
             text=task.deadline[:10] if task and task.deadline else "",
-            on_focus=self.show_date_picker, mode="fill", radius=[dp(10)]
+            mode="fill", radius=[dp(10)]
         )
+        self.dead_f.bind(focus=self.show_date_picker)
+
         self.remind_f = MDTextField(
             hint_text="Reminder (YYYY-MM-DD HH:MM)",
-            text=task.reminder_at if task else "",
-            on_focus=self.show_time_picker, mode="fill", radius=[dp(10)]
+            text=task.reminder_at if task and task.reminder_at else "",
+            mode="fill", radius=[dp(10)]
         )
+        self.remind_f.bind(focus=self.show_time_picker)
 
         for w in [self.title_f, self.desc_f, self.dead_f, self.remind_f]:
             self.add_widget(w)
@@ -121,27 +124,44 @@ class _TaskFormContent(MDBoxLayout):
         rrow.add_widget(self._recurring)
         self.add_widget(rrow)
 
+    def _force_portrait(self):
+        from kivymd.app import MDApp
+        MDApp.get_running_app().theme_cls.device_orientation = "portrait"
+
     def show_date_picker(self, instance_textfield, focus):
-        if not focus: return
+        if not focus:
+            return
+        instance_textfield.focus = False
+        self._force_portrait()
         date_dialog = MDDatePicker()
+
         def on_save(instance, value, date_range):
-            instance_textfield.text = str(value)
+            instance_textfield.text = value.strftime("%Y-%m-%d")
+
         date_dialog.bind(on_save=on_save)
         date_dialog.open()
 
     def show_time_picker(self, instance_textfield, focus):
-        if not focus: return
-        # First show date, then time for reminder
+        if not focus:
+            return
+        instance_textfield.focus = False
+        self._force_portrait()
         date_dialog = MDDatePicker()
+
         def on_date_save(instance, value, date_range):
+            self._force_portrait()
             time_dialog = MDTimePicker()
+
             def on_time_save(t_instance, t_value):
-                instance_textfield.text = f"{value} {t_value}"
+                instance_textfield.text = (
+                    f"{value.strftime('%Y-%m-%d')} {t_value.strftime('%H:%M')}"
+                )
+
             time_dialog.bind(on_save=on_time_save)
             time_dialog.open()
+
         date_dialog.bind(on_save=on_date_save)
         date_dialog.open()
-
 
 class TaskScreen(MDScreen):
     def __init__(self, user_id: int, **kwargs):

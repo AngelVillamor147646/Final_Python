@@ -16,6 +16,7 @@ from kivymd.uix.selectioncontrol import MDCheckbox
 from kivymd.uix.card import MDCard
 from utils.helpers import TasklynSnackbar as Snackbar
 from config import AVATAR_SLUGS
+import re
 
 Builder.load_string("""
 <OnboardingScreen>:
@@ -66,15 +67,33 @@ Builder.load_string("""
                 mode: 'fill'
                 radius: [dp(10)]
                 
-            MDTextField:
-                id: password_field
-                hint_text: 'Password (Optional)'
-                icon_left: 'lock'
-                password: True
+            MDRelativeLayout:
                 size_hint_y: None
                 height: dp(56)
-                mode: 'fill'
-                radius: [dp(10)]
+
+                MDTextField:
+                    id: password_field
+                    hint_text: 'Password'
+                    icon_left: 'lock'
+                    password: True
+                    mode: 'fill'
+                    radius: [dp(10)]
+
+                MDIconButton:
+                    icon: 'eye-off'
+                    pos_hint: {'center_y': .5}
+                    pos: password_field.width - self.width + dp(8), 0
+                    on_release:
+                        self.icon = 'eye' if self.icon == 'eye-off' else 'eye-off'
+                        password_field.password = not password_field.password
+            
+            MDLabel:
+                text: '8+ characters, with a capital letter, number, and special character.'
+                font_style: 'Caption'
+                halign: 'left'
+                theme_text_color: 'Secondary'
+                size_hint_y: None
+                height: dp(20)
 
             MDLabel:
                 text: 'Choose your avatar'
@@ -171,9 +190,24 @@ class OnboardingScreen(MDScreen):
     def on_start(self):
         name = self.ids.name_field.text.strip()
         if not name:
-            Snackbar(text="Please enter your name.").open()
+            Snackbar(text="Please enter your name.", notif_type="error").open()
             return
         password = self.ids.password_field.text.strip() or None
+
+        if password:
+            if len(password) < 8:
+                Snackbar(text="Password must be at least 8 characters.", notif_type="error").open()
+                return
+            if not re.search(r'[A-Z]', password):
+                Snackbar(text="Password must include an uppercase letter.", notif_type="error").open()
+                return
+            if not re.search(r'[0-9]', password):
+                Snackbar(text="Password must include a number.", notif_type="error").open()
+                return
+            if not re.search(r'[^A-Za-z0-9]', password):
+                Snackbar(text="Password must include a special character.", notif_type="error").open()
+                return
+
         gender = "girl" if "girl" in self._selected_avatar else "boy"
         from services.auth_service import create_profile
         ok, err, user = create_profile(name, self._selected_avatar, gender, password)
@@ -184,4 +218,4 @@ class OnboardingScreen(MDScreen):
             from kivymd.app import MDApp
             MDApp.get_running_app().on_new_user(user.id)
         else:
-            Snackbar(text=err or "Error saving profile.").open()
+            Snackbar(text=err or "Error saving profile.", notif_type="error").open()

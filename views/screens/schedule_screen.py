@@ -182,8 +182,10 @@ class ScheduleScreen(MDScreen):
         from kivymd.uix.gridlayout import MDGridLayout
         
         self._s_title  = MDTextField(hint_text="Class title *", text="", mode="fill", radius=[dp(10)])
-        self._s_start  = MDTextField(hint_text="Start time (HH:MM)", text="", mode="fill", radius=[dp(10)])
-        self._s_end    = MDTextField(hint_text="End time (HH:MM)", text="", mode="fill", radius=[dp(10)])
+        self._s_start  = MDTextField(hint_text="Start time", text="", mode="fill", radius=[dp(10)], readonly=True)
+        self._s_start.bind(focus=lambda inst, val: self._open_time_picker("start") if val else None)
+        self._s_end    = MDTextField(hint_text="End time", text="", mode="fill", radius=[dp(10)], readonly=True)
+        self._s_end.bind(focus=lambda inst, val: self._open_time_picker("end") if val else None)
         self._s_room   = MDTextField(hint_text="Room / location", text="", mode="fill", radius=[dp(10)])
         self._s_instr  = MDTextField(hint_text="Instructor", text="", mode="fill", radius=[dp(10)])
         self._s_notes  = MDTextField(hint_text="Notes (optional)", text="", mode="fill", radius=[dp(10)])
@@ -225,6 +227,24 @@ class ScheduleScreen(MDScreen):
         )
         self._dialog.open()
 
+    def _open_time_picker(self, which: str):
+        from kivymd.app import MDApp
+        from kivymd.uix.pickers import MDTimePicker
+        MDApp.get_running_app().theme_cls.device_orientation = "portrait"
+        picker = MDTimePicker()
+        picker.bind(time=lambda inst, t: self._on_time_picked(which, t))
+        picker.open()
+
+    def _on_time_picked(self, which: str, t):
+        value = t.strftime("%H:%M")  # stores as 24-hour, e.g. "14:30"
+        display = t.strftime("%I:%M %p").lstrip("0")  # shows as "2:30 PM"
+        if which == "start":
+            self._s_start.text = display
+            self._start_value = value
+        else:
+            self._s_end.text = display
+            self._end_value = value
+
     def _save(self, *_):
         from services.schedule_service import create_schedule
         try:
@@ -241,8 +261,8 @@ class ScheduleScreen(MDScreen):
             user_id=self.user_id,
             title=self._s_title.text,
             days=selected_days,
-            start_time=self._s_start.text,
-            end_time=self._s_end.text,
+            start_time=getattr(self, "_start_value", ""),
+            end_time=getattr(self, "_end_value", ""),
             room=self._s_room.text,
             instructor=self._s_instr.text,
             notes=self._s_notes.text,
